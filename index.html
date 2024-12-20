@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Records Viewer CDU Granada</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+      }
+      form {
+          margin-bottom: 20px;
+      }
+      label {
+          display: block;
+          margin-top: 10px;
+          text-align: left;
+      }
+      input, select, button {
+          margin-top: 5px;
+          padding: 5px;
+          font-size: 1em;
+      }
+      #result, #splitsDisplay, #percentage, #timeDifference {
+          margin-top: 20px;
+          font-size: 1.2em;
+          font-weight: bold;
+      }
+      #logo {
+          width: 200px; /* Adjust as needed */
+          margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- CDU Granada Image at the Top -->
+    <img id="logo" src="CDU Granada.png" alt="CDU Granada Logo">
+
+    <h1>Records Viewer CDU Granada</h1>
+
+    <form id="recordsForm">
+      <label for="uploadFile">Upload Records File:</label>
+      <input type="file" id="uploadFile" accept=".xlsx, .xls" required>
+
+      <label for="poolType">Pool Type:</label>
+      <select id="poolType" required>
+        <option value="25m">25m Pool</option>
+        <option value="50m">50m Pool</option>
+      </select>
+
+      <label for="event">Swim Event:</label>
+      <select id="event" required>
+        <option value="">Select Event</option>
+      </select>
+
+      <label for="gender">Gender:</label>
+      <select id="gender" required>
+        <option value="Men">Men</option>
+        <option value="Women">Women</option>
+      </select>
+
+      <label for="userTime">Your Time (in seconds):</label>
+      <input type="number" id="userTime" step="0.01" required>
+
+      <button type="button" onclick="showRecord()">Show Record</button>
+    </form>
+
+    <div id="result"></div>
+    <div id="splitsDisplay"></div>
+    <div id="percentage"></div>
+    <div id="timeDifference"></div>
+
+    <script>
+      let records = [];
+
+      function loadExcelFile(file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets["Records"];
+          if (!sheet) {
+            alert("The sheet named 'Records' was not found.");
+            return;
+          }
+          records = XLSX.utils.sheet_to_json(sheet);
+          populateEvents();
+        };
+        reader.onerror = function (error) {
+          alert("Error reading the file: " + error);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function populateEvents() {
+        const uniqueEvents = new Set();
+        records.forEach(record => {
+          uniqueEvents.add(record.Event);
+        });
+        const eventDropdown = document.getElementById("event");
+        eventDropdown.innerHTML = Array.from(uniqueEvents)
+          .map(event => `<option value="${event}">${event}</option>`)
+          .join('');
+      }
+
+      function showRecord() {
+        const poolType = document.getElementById("poolType").value;
+        const event = document.getElementById("event").value;
+        const gender = document.getElementById("gender").value;
+        const userTime = parseFloat(document.getElementById("userTime").value);
+
+        if (!poolType || !event || !gender || isNaN(userTime)) {
+          document.getElementById("result").textContent = "Please fill out all fields.";
+          return;
+        }
+
+        // Find the World Record (WR) for the specified criteria
+        const matchingRecord = records.find(record =>
+          record.Event === event &&
+          record.Pool === poolType &&
+          record.Type === "WR" && // Only World Record
+          record.Gender === gender
+        );
+
+        if (matchingRecord) {
+          const recordTime = parseFloat(matchingRecord.Time);
+
+          document.getElementById("result").textContent = `World Record Time: ${recordTime} seconds`;
+          document.getElementById("splitsDisplay").textContent = `Splits: ${matchingRecord.Splits}`;
+
+          // Calculate percentage of World Record
+          const percentageOfWR = (recordTime / userTime) * 100;
+          document.getElementById("percentage").textContent = `Percentage of World Record: ${percentageOfWR.toFixed(2)}%`;
+
+          // Calculate time difference
+          const timeDifference = userTime - recordTime;
+          document.getElementById("timeDifference").textContent = 
+            `Time Difference: ${timeDifference > 0 ? `+${timeDifference.toFixed(2)} seconds` : `${timeDifference.toFixed(2)} seconds (You beat the WR!)`}`;
+        } else {
+          document.getElementById("result").textContent = "No matching World Record found.";
+          document.getElementById("splitsDisplay").textContent = "";
+          document.getElementById("percentage").textContent = "";
+          document.getElementById("timeDifference").textContent = "";
+        }
+      }
+
+      document.getElementById("uploadFile").addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        if (file) {
+          loadExcelFile(file);
+        }
+      });
+    </script>
+  </body>
+</html>
